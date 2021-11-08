@@ -2,79 +2,53 @@
 lang: en-US
 ---
 
-Generate All the Things
-
-::: {role="main"}
 # Generate All the Things
 
-::: {.post-meta .sect1}
-Nov 7, 2021
-:::
+### Nov 7, 2021
 
-::: paragraph
+<!-- TocDown Begin -->
+* [0 Goals](#goals)
+* [1 Implementation](#implementation)
+* [2 Some Notes](#some-notes)
+* [3 Testing](#testing)
+  * [3.1 Empty](#empty)
+  * [3.2 Ordered Pairs](#ordered-pairs)
+  * [3.3 Unordered Pairs](#unordered-pairs)
+  * [3.4 Permutations](#permutations)
+  * [3.5 Subsets:](#subsets)
+  * [3.6 Combinations:](#combinations)
+<!-- TocDown End -->
+
 In this post, we'll look at one technique from property-based testing
 repertoire: full coverage / exhaustive testing. Specifically, we will
 learn how to conveniently enumerate any kind of combinatorial object
 without using recursion.
-:::
 
-::: paragraph
+
 To start, let's assume we have some algorithmic problem to solve. For
 example, we want to sort an array of numbers:
-:::
 
-::: listingblock
-::: content
-``` {.rouge .highlight}
-1
-2
-3
-```
+```rust
 
     fn sort(xs: &mut [u32]) {
         ...
     }
-:::
-:::
+```
 
-::: paragraph
+
 To test that the `sort` function works, we can write a bunch of
 example-based test cases. This approach has two flaws:
-:::
 
-::: ulist
 -   Generating examples by hand is time consuming.
 
 -   It might be hard to come up with interesting examples --- any edge
     cases we've thought about is probably already handled in the code.
     We want to find cases which we didn't think of before.
-:::
 
-::: paragraph
 A better approach is randomized testing: just generate a random array
 and check that it is sorted:
-:::
 
-::: listingblock
-::: content
-``` {.rouge .highlight}
- 1
- 2
- 3
- 4
- 5
- 6
- 7
- 8
- 9
-10
-11
-12
-13
-14
-15
-```
-
+```rust
     #[test]
     fn naive_randomized_testing() {
       let mut rng = rand::thread_rng();
@@ -90,14 +64,11 @@ and check that it is sorted:
         }
       }
     }
-:::
-:::
+```
 
-::: paragraph
+
 Here, we generated one hundred thousand completely random test cases!
-:::
 
-::: paragraph
 Sadly, the result might actually be *worse* than a small set of
 hand-picked examples. The problem here is that, if you pick an array
 completely at random (sample uniformly), it will be a rather ordinary
@@ -105,24 +76,15 @@ array. In particular, given that the elements are arbitrary `u32`
 numbers, it's highly unlikely that we generate an array with at least
 some equal elements. And when I write quick sort, I always have that
 nasty bug that it just loops infinitely when *all* elements are equal.
-:::
 
-::: paragraph
 There are several fixes for the problem. The simplest one is to just
 make the sampling space smaller:
-:::
 
-::: listingblock
-::: content
-``` {.rouge .highlight}
-1
-```
+```rust
 
     std::iter::repeat_with(|| rng.gen_rang(0..10)).take(n).collect();
-:::
-:::
+```
 
-::: paragraph
 If we generate not an arbitrary `u32`, but a number between 0 and 10,
 we'll get some short arrays where all elements are equal. Another trick
 is to use a property-based testing library, which comes with some
@@ -138,9 +100,11 @@ sequence of random numbers to generate structured input. Essentially, we
 say that the fuzzer *is* a random number generator. That way, when the
 fuzzer flips bits in the raw bytes array, it applies local semantically
 valid transformations to the random data structure.
-:::
 
-::: paragraph
+---
+
+## Goals
+
 But this post isn't about those techniques :) Instead, it is about the
 idea of full coverage. *Most* of the bugs involve small, tricky
 examples. If a sorting routine breaks on some array with ten thousand
@@ -148,26 +112,8 @@ elements it's highly likely that there's a much smaller array (a handful
 of elements), which exposes the same bug. So what we can do is to just
 generate *every* array of length at most `n` with numbers up to `m` and
 exhaustively check them all:
-:::
-
-::: listingblock
-::: content
-``` {.rouge .highlight}
- 1
- 2
- 3
- 4
- 5
- 6
- 7
- 8
- 9
-10
-11
-12
-```
-
-    #[test]
+```rust
+	#[test]
     fn exhaustive_testing() {
       let n = 5;
       let m = 5;
@@ -179,36 +125,12 @@ exhaustively check them all:
         }
       }
     }
-:::
-:::
+```
 
-::: paragraph
 The problem here is that implementing `every_array` is tricky. It is one
 of those puzzlers you know how to solve, but which are excruciatingly
 annoying to implement for the umpteenth time:
-:::
-
-::: listingblock
-::: content
-``` {.rouge .highlight}
- 1
- 2
- 3
- 4
- 5
- 6
- 7
- 8
- 9
-10
-11
-12
-13
-14
-15
-16
-```
-
+```rust
     fn every_array(n: usize, m: u32) -> Vec<Vec<u32>> {
       if n == 0 {
         return vec![Vec::new()];
@@ -225,44 +147,29 @@ annoying to implement for the umpteenth time:
 
       res
     }
-:::
-:::
+```
 
-::: paragraph
 What's more, for algorithms you often need to generate permutations,
 combinations and subsets, and they all have similar simple but tricky
 recursive solutions.
-:::
 
-::: paragraph
 Yesterday I needed to generate a sequence of up to `n` segments with
 integer coordinates up to `m`, which finally pushed me to realize that
 there's a relatively simple way to exhaustively enumerate arbitrary
 combinatorial objects. I don't recall seeing it anywhere else, which is
 surprising, as the technique seems rather elegant.
-:::
 
-------------------------------------------------------------------------
+---
 
-::: paragraph
+## Implementation
+
 Let's look again at how we generate a random array:
-:::
-
-::: listingblock
-::: content
-``` {.rouge .highlight}
-1
-2
-3
-```
-
+```rust
     let l: usize = rng.gen_range(0..l);
     let mut xs: Vec<u32> =
       std::iter::repeat_with(|| rng.gen(..m)).take(m).collect();
-:::
-:::
+```
 
-::: paragraph
 This is definitely much more straightforward than the `every_array`
 function above, although it does sort-of the same thing. The trick is to
 take this "generate *a random* thing" code and just make it generate
@@ -270,39 +177,16 @@ take this "generate *a random* thing" code and just make it generate
 numbers. Specifically, an input sequence of random numbers generates one
 element in the search space. If we enumerate all sequences of random
 numbers, we then explore the whole space.
-:::
 
-::: paragraph
 Essentially, we'll rig the `rng` to not be random, but instead to emit
 all finite sequences of numbers. By writing a single generator of such
 sequences, we gain an ability to enumerate arbitrary objects. As we are
 interested in generating all "small" objects, we always pass an upper
 bound when asking for a "random" number. We can use the bounds to
 enumerate only the sequences which fit under them.
-:::
 
-::: paragraph
 So, the end result will look like this:
-:::
-
-::: listingblock
-::: content
-``` {.rouge .highlight}
- 1
- 2
- 3
- 4
- 5
- 6
- 7
- 8
- 9
-10
-11
-12
-13
-```
-
+```rust
     #[test]
     fn for_every_array() {
       let n = 5;
@@ -316,28 +200,18 @@ So, the end result will look like this:
         // `xs` enumerates all arrays
       }
     }
-:::
-:::
+```
 
-::: paragraph
 The implementation of `Gen` is relatively straightforward. On each
 iteration, we will remember the sequence of numbers we generated
 together with bounds the user requested, something like this:
-:::
 
-::: listingblock
-::: content
-``` {.rouge .highlight}
-1
-2
-```
+```rust
 
     value:  3 1 4 4
     bound:  5 4 4 4
-:::
-:::
+```
 
-::: paragraph
 To advance to the next iteration, we will find the smallest sequence of
 values which is larger than the current one, but still satisfies all the
 bounds. "Smallest" means that we'll try to increment the rightmost
@@ -346,53 +220,7 @@ bound, so we can't increment them. However, we *can* increment one to
 get `3 2 4 4`. This isn't the smallest sequence though, `3 2 0 0` would
 be smaller. So, after incrementing the rightmost number we can
 increment, we zero the rest.
-:::
-
-::: paragraph
-Here's the full implementation:
-:::
-
-::: listingblock
-::: content
-``` {.rouge .highlight}
- 1
- 2
- 3
- 4
- 5
- 6
- 7
- 8
- 9
-10
-11
-12
-13
-14
-15
-16
-17
-18
-19
-20
-21
-22
-23
-24
-25
-26
-27
-28
-29
-30
-31
-32
-33
-34
-35
-36
-```
-
+```rust
     struct Gen {
       started: bool,
       v: Vec<(u32, u32)>,
@@ -429,14 +257,12 @@ Here's the full implementation:
         self.v[self.p - 1].0
       }
     }
-:::
-:::
+```
 
-::: paragraph
-Some notes:
-:::
+---
 
-::: ulist
+## Some Notes
+
 -   We need `start` field to track the first iteration, and to make
     `while !g.done()` syntax work. It's a bit more natural to remove
     `start` and use a `do { } while !g.done()` loop, but it's not
@@ -457,41 +283,14 @@ Some notes:
 -   Somewhat unusually, the bounds are treated inclusively. This removes
     the panic when `bound` is zero, and allows to generate a full set of
     numbers via `gen(u32::MAX)`.
-:::
 
-::: paragraph
+---
+
+## Testing
+
 Let's see how our `gen` fairs for generating random arrays of length at
 most `n`. We'll count how many distinct cases were covered:
-:::
-
-::: listingblock
-::: content
-``` {.rouge .highlight}
- 1
- 2
- 3
- 4
- 5
- 6
- 7
- 8
- 9
-10
-11
-12
-13
-14
-15
-16
-17
-18
-19
-20
-21
-22
-23
-```
-
+```rust
     #[test]
     fn gen_arrays() {
       let n = 5;
@@ -515,40 +314,18 @@ most `n`. We'll count how many distinct cases were covered:
       assert_eq!(all.len(), total);
       assert_eq!(expected_total, total as u32)
     }
-:::
-:::
+```
 
-::: paragraph
 This test passes. That is, the `gen` approach for this case is both
 exhaustive (it generates all arrays) and efficient (each array is
 generated once).
-:::
 
-::: paragraph
 As promised in the post's title, let's now generate *all* the things.
-:::
 
-::: paragraph
+### Empty
 First case: there should be only one nothing (that's the reason why we
 need `start`):
-:::
-
-::: listingblock
-::: content
-``` {.rouge .highlight}
- 1
- 2
- 3
- 4
- 5
- 6
- 7
- 8
- 9
-10
-11
-```
-
+```rust
     #[test]
     fn gen_nothing() {
       let expected_total = 1;
@@ -560,57 +337,12 @@ need `start`):
       }
       assert_eq!(expected_total, total)
     }
-:::
-:::
-
-::: paragraph
-Second case: we expect to see `n` numbers and `n*2` ordered pairs of
-numbers.
-:::
-
-::: listingblock
-::: content
-``` {.rouge .highlight}
- 1
- 2
- 3
- 4
- 5
- 6
- 7
- 8
- 9
-10
-11
-12
-13
-14
-15
-16
-17
-18
-19
-20
-21
-22
-23
-24
-25
-26
-27
-28
-29
-30
-31
-32
-33
-34
-35
-36
-37
-38
 ```
 
+### Ordered Pairs
+Second case: we expect to see `n` numbers and `n*2` ordered pairs of
+numbers.
+```rust
     #[test]
     fn gen_number() {
       let n = 5;
@@ -649,41 +381,19 @@ numbers.
       assert_eq!(expected_total, total);
       assert_eq!(expected_total, all.len() as u32);
     }
-:::
-:::
+```
 
-::: paragraph
+### Unordered Pairs
 Third case: we expect to see `n * (n - 1) / 2` unordered pairs of
 numbers. This one is interesting --- here, our second decision is based
 on the first one, but we still enumerate all the cases efficiently
-(without duplicates). (Aside: did you ever realise that the number of
+(without duplicates). 
+
+Aside: did you ever realize that the number of
 ways to pick two objects out of `n` is equal to the sum of first `n`
-natural numbers?)
-:::
+natural numbers?
 
-::: listingblock
-::: content
-``` {.rouge .highlight}
- 1
- 2
- 3
- 4
- 5
- 6
- 7
- 8
- 9
-10
-11
-12
-13
-14
-15
-16
-17
-18
-```
-
+```rust
     #[test]
     fn gen_number_combination() {
       let n = 5;
@@ -701,43 +411,13 @@ natural numbers?)
 
       assert_eq!(expected_total, total);
       assert_eq!(expected_total, all.len() as u32);
-    }
-:::
-:::
-
-::: paragraph
-We've already generated all arrays, so let's try to create all
-permutations. Still efficient:
-:::
-
-::: listingblock
-::: content
-``` {.rouge .highlight}
- 1
- 2
- 3
- 4
- 5
- 6
- 7
- 8
- 9
-10
-11
-12
-13
-14
-15
-16
-17
-18
-19
-20
-21
-22
-23
+   }
 ```
 
+### Permutations
+We've already generated all arrays, so let's try to create all
+permutations. Still efficient:
+```rust
     #[test]
     fn gen_permutations() {
       let n = 5;
@@ -761,36 +441,10 @@ permutations. Still efficient:
       assert_eq!(expected_total, total);
       assert_eq!(expected_total, all.len() as u32);
     }
-:::
-:::
-
-::: paragraph
-Subsets:
-:::
-
-::: listingblock
-::: content
-``` {.rouge .highlight}
- 1
- 2
- 3
- 4
- 5
- 6
- 7
- 8
- 9
-10
-11
-12
-13
-14
-15
-16
-17
-18
 ```
 
+### Subsets:
+```rust
     #[test]
     fn gen_subset() {
         let n = 5;
@@ -809,43 +463,10 @@ Subsets:
         assert_eq!(expected_total, total);
         assert_eq!(expected_total, all.len() as u32);
     }
-:::
-:::
-
-::: paragraph
-Combinations:
-:::
-
-::: listingblock
-::: content
-``` {.rouge .highlight}
- 1
- 2
- 3
- 4
- 5
- 6
- 7
- 8
- 9
-10
-11
-12
-13
-14
-15
-16
-17
-18
-19
-20
-21
-22
-23
-24
-25
 ```
 
+### Combinations:
+```rust
     #[test]
     fn gen_combinations() {
         let n = 5;
@@ -871,10 +492,8 @@ Combinations:
         assert_eq!(expected_total, total);
         assert_eq!(expected_total, all.len() as u32);
     }
-:::
-:::
+```
 
-::: paragraph
 Now, this one actually fails --- while this code generates all
 combinations, some combinations are generated more than once.
 Specifically, what we are generating here are k-permutations
@@ -882,26 +501,7 @@ Specifically, what we are generating here are k-permutations
 efficient, this is OK for the purposes of exhaustive testing (as we
 still generate any combination). Nonetheless, there's an efficient
 version as well:
-:::
-
-::: listingblock
-::: content
-``` {.rouge .highlight}
- 1
- 2
- 3
- 4
- 5
- 6
- 7
- 8
- 9
-10
-11
-12
-13
-```
-
+```rust
     let mut combination = BTreeSet::new();
     for c in 1..=n {
       if combination.len() as u32 == m {
@@ -915,49 +515,14 @@ version as well:
         combination.insert(c);
       }
     }
-:::
-:::
+```
 
-::: paragraph
 I think this covers all standard combinatorial structures. What's
 interesting, this approach works for non-standard structures as well.
 For example, for <https://cses.fi/problemset/task/2168>, the problem
 which started all this, I need to generate sequences of segments:
-:::
 
-::: listingblock
-::: content
-``` {.rouge .highlight}
- 1
- 2
- 3
- 4
- 5
- 6
- 7
- 8
- 9
-10
-11
-12
-13
-14
-15
-16
-17
-18
-19
-20
-21
-22
-23
-24
-25
-26
-27
-28
-```
-
+```rust
     #[test]
     fn gen_segments() {
       let n = 5;
@@ -986,27 +551,18 @@ which started all this, I need to generate sequences of segments:
       assert_eq!(all.len(), 2_593_942);
       assert_eq!(total, 4_288_306);
     }
-:::
-:::
+```
 
-::: paragraph
 Due to the `.contains` check there are some duplicates, but that's not a
 problem as long as all sequences of segments are generated.
 Additionally, examples are strictly ordered by their
 complexity --- earlier examples have fewer segments with smaller
 coordinates. That means that the first example which fails a property
 test is actually guaranteed to be the smallest counterexample! Nifty!
-:::
 
-::: paragraph
+--- 
+
 That's all! Next time when you need to test something, consider if you
 can just exhaustively enumerate all "sufficiently small" inputs. If
 that's feasible, you can either write the classical recursive
 enumerator, or use this imperative `Gen` thing.
-:::
-:::
-
-[ fix
-typo](https://github.com/matklad/matklad.github.io/edit/master/_posts/2021-11-07-generate-all-the-things.adoc)
-[ rss](https://matklad.github.io/feed.xml) [
-matklad](https://github.com/matklad)
