@@ -4,12 +4,6 @@ lang: en-US
 
 Generate All the Things
 
-::: site-header
-[matklad](https://matklad.github.io/){.-title}
-[About](https://matklad.github.io/about/)
-[Resume](https://matklad.github.io/resume/)
-:::
-
 ::: {role="main"}
 # Generate All the Things
 
