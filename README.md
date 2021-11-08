@@ -1,7 +1,3 @@
----
-lang: en-US
----
-
 # Generate All the Things
 
 ### Nov 7, 2021
