@@ -15,6 +15,8 @@
   * [3.6 Combinations:](#combinations)
 <!-- TocDown End -->
 
+---
+
 In this post, we'll look at one technique from property-based testing
 repertoire: full coverage / exhaustive testing. Specifically, we will
 learn how to conveniently enumerate any kind of combinatorial object
